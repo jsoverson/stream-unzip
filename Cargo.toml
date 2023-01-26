@@ -15,3 +15,4 @@ color-backtrace = "0.5.1"
 env_logger = "0.10.0"
 ubio = { version = "0.1.0" }
 zip = "0.6.3"
+anyhow = "1.0"

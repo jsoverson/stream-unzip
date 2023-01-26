@@ -1,20 +1,19 @@
-use std::{error, fmt};
+use std::{array::TryFromSliceError, error, fmt};
 
 /// Any zip-related error, from invalid archives to encoding problems.
 #[derive(Debug)]
 pub enum Error {
     /// Not a valid zip file, or a variant that is unsupported.
     Format(FormatError),
-    /// Something is not supported by this crate
-    Unsupported,
+
+    /// Bad header format
+    BadHeader,
 
     /// I/O-related error
     ///
     /// Only returned by the higher-level API, since
     /// [ArchiveReader](crate::reader::ArchiveReader) lets you do your own I/O.
     IO(std::io::Error),
-    /// Could not read as a zip because size could not be determined
-    UnknownSize,
 }
 
 /// Specific zip format errors, mostly due to invalid zip archives but that could also stem from
@@ -66,10 +65,9 @@ impl error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::IO(e) => write!(f, "rc-zip: {}", e),
-            Error::Format(e) => write!(f, "rc-zip: {:#?}", e),
-            Error::UnknownSize => write!(f, "rc-zip: file size must be known to open zip archive",),
-            Error::Unsupported => todo!(),
+            Error::IO(e) => write!(f, "IO error: {}", e),
+            Error::Format(e) => write!(f, "{:#?}", e),
+            Error::BadHeader => write!(f, "Bad header format",),
         }
     }
 }
@@ -86,8 +84,14 @@ impl From<FormatError> for Error {
     }
 }
 
-impl Into<std::io::Error> for Error {
-    fn into(self) -> std::io::Error {
-        std::io::Error::new(std::io::ErrorKind::Other, self)
+impl From<Error> for std::io::Error {
+    fn from(val: Error) -> Self {
+        std::io::Error::new(std::io::ErrorKind::Other, val)
+    }
+}
+
+impl From<TryFromSliceError> for Error {
+    fn from(_: TryFromSliceError) -> Self {
+        Error::BadHeader
     }
 }
