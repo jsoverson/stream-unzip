@@ -1,9 +1,11 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 
 static H_LOCAL_FILE: [u8; 4] = [b'P', b'K', 0x03, 0x04];
 static H_DATA_DESCRIPTOR: [u8; 4] = [b'P', b'K', 0x07, 0x08];
 static H_CENTRAL_DIRECTORY: [u8; 4] = [b'P', b'K', 0x01, 0x02];
 static H_EO_CENTRAL_DIRECTORY: [u8; 4] = [b'P', b'K', 0x05, 0x06];
+
+// Unused but will be needed
 // static COMPRESSION_NONE: [u8; 2] = [0x00, 0x00];
 // static COMPRESSION_DEFLATE: [u8; 2] = [0x08, 0x00];
 // static ZIP64_SIZE: [u8; 4] = [0xff, 0xff, 0xff, 0xff];
@@ -101,20 +103,29 @@ fn decode_header(b: &mut BytesMut) -> Option<Header> {
     let header = &b[0..4];
 
     if header == H_LOCAL_FILE {
-        if b.remaining() < LocalFileHeader::size() + 4 {
+        let base_size = LocalFileHeader::size() + 4;
+        if b.remaining() < base_size {
             return None;
         }
-        b.advance(4);
-        let version = b.get_u16_le();
-        let flags = b.get_u16_le();
-        let compression = b.get_u16_le();
-        let last_mod_time = b.get_u16_le();
-        let last_mod_date = b.get_u16_le();
-        let crc32 = b.get_u32_le();
-        let compressed_size = b.get_u32_le();
-        let uncompressed_size = b.get_u32_le();
-        let file_name_length = b.get_u16_le();
-        let extra_field_length = b.get_u16_le();
+        let mut intermediate: BytesMut = BytesMut::zeroed(base_size);
+        intermediate.copy_from_slice(&b[0..base_size]);
+        intermediate.advance(4);
+        let version = intermediate.get_u16_le();
+        let flags = intermediate.get_u16_le();
+        let compression = intermediate.get_u16_le();
+        let last_mod_time = intermediate.get_u16_le();
+        let last_mod_date = intermediate.get_u16_le();
+        let crc32 = intermediate.get_u32_le();
+        let compressed_size = intermediate.get_u32_le();
+        let uncompressed_size = intermediate.get_u32_le();
+        let file_name_length = intermediate.get_u16_le();
+        let extra_field_length = intermediate.get_u16_le();
+        if (b.remaining() - base_size) < (file_name_length + extra_field_length) as usize {
+            return None;
+        } else {
+            b.advance(base_size);
+        }
+
         let filename = String::from_utf8(b.split_to(file_name_length as usize).to_vec()).unwrap();
         let extra_field = b.split_to(extra_field_length as usize).to_vec();
         let h = Header::LocalFile(LocalFileHeader {
@@ -221,7 +232,11 @@ pub struct ZipReader {
 }
 
 impl ZipReader {
-    pub fn update(&mut self, bytes: Vec<u8>) {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn update(&mut self, bytes: Bytes) {
         self.buffer.extend(bytes);
         self.process_buffer();
     }
@@ -237,8 +252,8 @@ impl ZipReader {
         &self.entries
     }
 
-    pub fn into_entries(self) -> Vec<ZipEntry> {
-        self.entries
+    pub fn drain_entries(&mut self) -> Vec<ZipEntry> {
+        self.entries.drain(0..).collect()
     }
 
     pub fn flush(&mut self) {
@@ -311,27 +326,42 @@ impl ZipEntry {
         &self.name
     }
 
-    pub fn bytes(&self) -> &BytesMut {
+    pub fn compressed_data(&self) -> &BytesMut {
         &self.bytes
     }
 
-    pub fn deflate(self) -> Result<DeflatedEntry, crate::Error> {
+    pub fn inflate(self) -> Result<DeflatedEntry, crate::Error> {
         let bytes = self.bytes;
 
         Ok(DeflatedEntry {
-            filename: self.header.filename.clone(),
-            bytes: inflate::inflate_bytes(&bytes).unwrap(),
-            compressed_size: self.header.compressed_size,
-            uncompressed_size: self.header.uncompressed_size,
+            bytes: inflate::inflate_bytes(&bytes).unwrap().into(),
             header: self.header,
         })
     }
 }
 
 pub struct DeflatedEntry {
-    pub header: LocalFileHeader,
-    pub filename: String,
-    pub bytes: Vec<u8>,
-    pub compressed_size: u32,
-    pub uncompressed_size: u32,
+    header: LocalFileHeader,
+    bytes: Bytes,
+}
+
+impl DeflatedEntry {
+    pub fn data(&self) -> &Bytes {
+        &self.bytes
+    }
+    pub fn name(&self) -> &str {
+        &self.header.filename
+    }
+    pub fn compressed_size(&self) -> u32 {
+        self.header.compressed_size
+    }
+    pub fn uncompressed_size(&self) -> u32 {
+        self.header.uncompressed_size
+    }
+}
+
+impl From<DeflatedEntry> for Bytes {
+    fn from(entry: DeflatedEntry) -> Self {
+        entry.bytes
+    }
 }

@@ -2,11 +2,12 @@
 name = "stream-unzip"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-inflate = "0.4.5"
-bytes = "1.0.0"
+inflate = "0.4"
+bytes = "1.0"
 
 [dev-dependencies]
 tokio = { version = "1.0.0", features = ["full"] }
