@@ -330,6 +330,10 @@ impl ZipEntry {
         &self.bytes
     }
 
+    pub fn header(&self) -> &LocalFileHeader {
+        &self.header
+    }
+
     pub fn inflate(self) -> Result<DeflatedEntry, crate::Error> {
         let bytes = self.bytes;
 
