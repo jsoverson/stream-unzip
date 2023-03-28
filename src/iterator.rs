@@ -1,6 +1,6 @@
 use crate::{ZipEntry, ZipReader};
 
-struct ZipIterator<F, const N: usize> {
+pub struct ZipIterator<F, const N: usize> {
     file: F,
     zip_reader: ZipReader,
 }
