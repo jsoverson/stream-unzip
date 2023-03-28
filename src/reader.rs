@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use bytes::{Buf, Bytes, BytesMut};
 
 static H_LOCAL_FILE: [u8; 4] = [b'P', b'K', 0x03, 0x04];
@@ -228,7 +230,7 @@ fn decode_header(b: &mut BytesMut) -> Option<Header> {
 pub struct ZipReader {
     curr_entry: Option<ZipEntry>,
     buffer: BytesMut,
-    entries: Vec<ZipEntry>,
+    entries: VecDeque<ZipEntry>,
 }
 
 impl ZipReader {
@@ -244,16 +246,17 @@ impl ZipReader {
     pub fn finish(&mut self) {
         self.process_buffer();
         if let Some(curr_entry) = self.curr_entry.take() {
-            self.entries.push(curr_entry);
+            self.entries.push_back(curr_entry);
         }
     }
 
-    pub fn entries(&self) -> &[ZipEntry] {
-        &self.entries
+    pub fn entries(&mut self) -> &[ZipEntry] {
+        self.entries.make_contiguous();
+        &self.entries.as_slices().0
     }
 
     pub fn take_entry(&mut self) -> Option<ZipEntry> {
-        self.entries.pop()
+        self.entries.pop_front()
     }
 
     pub fn drain_entries(&mut self) -> Vec<ZipEntry> {
@@ -270,7 +273,7 @@ impl ZipReader {
         while i < self.buffer.len() {
             if let Some(header) = decode_header(&mut self.buffer) {
                 if let Some(curr_entry) = self.curr_entry.take() {
-                    self.entries.push(curr_entry);
+                    self.entries.push_back(curr_entry);
                 }
                 if let Header::LocalFile(local) = &header {
                     let mut new_entry = ZipEntry::new(local.clone());
