@@ -252,6 +252,10 @@ impl ZipReader {
         &self.entries
     }
 
+    pub fn take_entry(&mut self) -> Option<ZipEntry> {
+        self.entries.pop()
+    }
+
     pub fn drain_entries(&mut self) -> Vec<ZipEntry> {
         self.entries.drain(0..).collect()
     }
