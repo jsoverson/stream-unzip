@@ -2,6 +2,8 @@ mod error;
 pub use self::error::*;
 mod reader;
 pub use reader::*;
+mod iterator;
+pub use iterator::*;
 
 #[cfg(test)]
 mod tests {
