@@ -10,6 +10,7 @@ mod tests {
     use tokio::io::AsyncReadExt;
 
     use std::{
+        fs::File,
         io::Read,
         path::{Path, PathBuf},
     };
@@ -83,5 +84,21 @@ mod tests {
             test_zip(&file.path(), 1024 * 1024).await?;
         }
         Ok(())
+    }
+
+    #[test]
+    fn test_iter() {
+        let file = std::fs::File::open(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata/readme.zip"),
+        )
+        .unwrap();
+        let zip: ZipIterator<File, 32> = file.into();
+
+        let mut entries = Vec::new();
+        for entry in zip {
+            entries.push(entry);
+        }
+
+        assert_eq!(1, entries.len());
     }
 }
