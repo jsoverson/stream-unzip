@@ -1,5 +1,6 @@
 use crate::{ZipEntry, ZipReader};
 
+/// Reads the given file in chunks of N bytes and returns one `ZipEntry` at a time
 pub struct ZipIterator<F, const N: usize> {
     file: F,
     zip_reader: ZipReader,
