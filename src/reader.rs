@@ -351,21 +351,34 @@ impl ZipEntry {
     }
 }
 
+/// An extracted entry from a zip file.
 pub struct DeflatedEntry {
     header: LocalFileHeader,
     bytes: Bytes,
 }
 
 impl DeflatedEntry {
+    /// Returns the header and the decompressed data.
+    pub fn into_parts(self) -> (LocalFileHeader, Bytes) {
+        (self.header, self.bytes)
+    }
+
+    /// Returns a reference to the decompressed data.
     pub fn data(&self) -> &Bytes {
         &self.bytes
     }
+
+    /// Returns the filename of the zip entry.
     pub fn name(&self) -> &str {
         &self.header.filename
     }
+
+    /// Returns the compressed size of the data.
     pub fn compressed_size(&self) -> u32 {
         self.header.compressed_size
     }
+
+    /// Returns the uncompressed size of the data.
     pub fn uncompressed_size(&self) -> u32 {
         self.header.uncompressed_size
     }
